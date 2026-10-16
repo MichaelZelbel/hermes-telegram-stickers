@@ -1,10 +1,6 @@
 name: godspeed-stickers
 version: "1.1.0"
-description: >-
-  Lets your Hermes agent send a Telegram sticker to the person it is talking to. The agent ends a
-  reply with a tag like [[sticker:done]]; this plugin sends the matching sticker through your own
-  bot and removes the tag, so the person sees the sticker and the words, never the tag. Uses the
-  free Speedy stickers unless you point GODSPEED_STICKER_SET at another set.
+description: "Your agent ends a reply with [[sticker:done]] and the person gets a Telegram sticker, not the tag."
 author: Godspeed Mission Control (https://godspeedmissioncontrol.com)
 kind: standalone
 provides_hooks:

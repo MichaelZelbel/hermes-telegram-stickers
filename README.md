@@ -75,9 +75,9 @@ are in [CONTRIBUTING.md](CONTRIBUTING.md).
 python3 -m unittest discover -s tests -v
 ```
 
-They never reach Telegram: a small stand-in for the Bot API runs on your machine. If the `hermes`
-command is installed, they also install the plugin into a throwaway Hermes home and run a real
-Hermes gateway against that stand-in.
+They never reach Telegram: a small stand-in for the Bot API runs on your machine. Run them with a
+Python that can import Hermes and they also install the plugin into a throwaway Hermes home and
+run a real Hermes gateway against that stand-in.
 
 ## License
 

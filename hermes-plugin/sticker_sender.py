@@ -86,8 +86,9 @@ def target_chat():
     home = setting('TELEGRAM_HOME_CHANNEL')
     if home:
         return home, setting('TELEGRAM_HOME_CHANNEL_THREAD_ID')
-    allowed = setting('TELEGRAM_ALLOWED_USERS')
-    first = allowed.split(',')[0].strip() if allowed else ''
+    # The first entry that is a chat id (the list may also hold "*" or usernames).
+    allowed = [a.strip() for a in setting('TELEGRAM_ALLOWED_USERS').split(',')]
+    first = next((a for a in allowed if a.lstrip('-').isdigit()), '')
     return first, ''
 
 

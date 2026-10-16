@@ -74,6 +74,6 @@ All optional. Put them in `~/.hermes/.env` and restart the gateway.
 
 ## Tests
 
-From the repository root: `python3 -m unittest discover -s tests -v`. With `hermes` installed,
-this also installs the plugin into a throwaway Hermes home and runs a real gateway against a
-stand-in for Telegram on your machine. Nothing reaches Telegram.
+From the repository root: `python3 -m unittest discover -s tests -v`. Run with a Python that can
+import Hermes, this also installs the plugin into a throwaway Hermes home and runs a real gateway
+against a stand-in for Telegram on your machine. Nothing reaches Telegram.

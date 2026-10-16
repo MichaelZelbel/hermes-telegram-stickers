@@ -180,7 +180,7 @@ class PluginTest(unittest.TestCase):
 
     def test_falls_back_to_first_allowed_user(self):
         del os.environ['TELEGRAM_HOME_CHANNEL']
-        os.environ['TELEGRAM_ALLOWED_USERS'] = '777, 888'
+        os.environ['TELEGRAM_ALLOWED_USERS'] = '*, someone, 777, 888'
         self.reply('ok [[sticker:done]]')
         self.assertEqual(self.sent()[0]['params']['chat_id'], '777')
 
