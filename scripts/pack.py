@@ -2,10 +2,11 @@
 """Pack helpers shared by the scripts in this folder. Standard library only.
 
     python3 scripts/pack.py check <pack>            check a pack against Telegram's sticker rules
-    python3 scripts/pack.py check --all             check every pack
+    python3 scripts/pack.py check --all             check every pack, and that they share the tags
     python3 scripts/pack.py set-name <pack> <bot>   the set name Telegram will give it under <bot>
+    python3 scripts/pack.py tags                    the tags every set has, with their first emoji
 
-publish-set.sh also uses `input-stickers`, `files` and `record`.
+publish-set.sh also uses `list`, `title`, `count`, `files`, `input-stickers`, `plan` and `record`.
 """
 from __future__ import annotations
 
@@ -17,9 +18,37 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKS = os.path.join(ROOT, 'packs')
 MAX_BYTES = 512 * 1024
-PLACEHOLDER_FILES = ('README.md', 'INTEGRATIONS.md', 'CONTRIBUTING.md',
+PLACEHOLDER_FILES = ('README.md', 'CONTRIBUTING.md',
                      os.path.join('hermes-plugin', 'README.md'),
                      os.path.join('hermes-plugin', '__init__.py'))
+
+# The moments every set has, in set order: (tag, the sticker's FIRST emoji, what it means).
+# The Hermes plugin finds a sticker by that first emoji, so it is the same in every set, and
+# hermes-plugin/__init__.py carries the same list (a test keeps the two equal).
+TAGS = [
+    ('today', '\U0001F3A7', 'here and listening'),
+    ('onit', '\U0001F4BB', 'on it'),
+    ('note', '\U0001F4DD', 'a note for you'),
+    ('copy', '\U0001F4E1', 'do you copy? I need your yes'),
+    ('fix', '\U0001F527', 'fixing it'),
+    ('done', '\U0001FAE1', 'done'),
+    ('quiet', '\U0001F634', 'keeping quiet watch'),
+    ('ok', '\U0001F44D', 'got it'),
+    ('think', '\U0001F914', 'thinking it over'),
+    ('found', '\U0001F50D', 'found it'),
+    ('oops', '\U0001F605', 'my mistake'),
+    ('party', '\U0001F389', 'good news'),
+    ('thanks', '\U0001F64F', 'thank you'),
+    ('morning', '\u2615', 'good morning'),
+    ('night', '\U0001F319', 'good night'),
+]
+TAG_EMOJI = {tag: emoji for tag, emoji, _ in TAGS}
+TAG_ORDER = [tag for tag, _, _ in TAGS]
+
+
+def plain(emoji: str) -> str:
+    """The emoji itself, without the invisible variation selector (U+FE0F)."""
+    return (emoji or '').replace('\ufe0f', '').strip()
 
 
 def manifest_path(pack: str) -> str:
@@ -90,18 +119,31 @@ def problems(pack: str) -> list[str]:
     if not 1 <= len(stickers) <= 50:
         out.append('a pack needs 1 to 50 stickers to be published in one go')
     poses = [s.get('pose') for s in stickers]
-    if any(not p or not re.fullmatch(r'[a-z0-9_-]+', p) for p in poses):
-        out.append('every sticker needs a "pose": lowercase letters, digits, - or _')
+    unknown = [p for p in poses if p not in TAG_EMOJI]
+    if unknown:
+        out.append('unknown tag(s) %s; every sticker is one of: %s'
+                   % (', '.join(map(repr, unknown)), ', '.join(TAG_ORDER)))
     if len(set(poses)) != len(poses):
-        out.append('pose names must be unique')
-    firsts = [(s.get('emoji') or [''])[0] for s in stickers]
-    if len(set(firsts)) != len(firsts):
-        out.append('the first emoji of every sticker must be unique (it is how a bot finds it)')
+        out.append('every tag may appear only once')
+    order = [TAG_ORDER.index(p) for p in poses if p in TAG_EMOJI]
+    if order != sorted(order):
+        out.append('stickers must follow the tag order: %s' % ', '.join(TAG_ORDER))
+    owners = {}  # emoji -> the stickers that carry it
+    for s in stickers:
+        for e in s.get('emoji') or []:
+            owners.setdefault(plain(e), []).append(s.get('pose') or s.get('file', '?'))
+    for e, who in owners.items():
+        if len(who) > 1:
+            out.append('emoji %s is on more than one sticker (%s); each emoji may belong to one '
+                       'sticker only' % (e, ', '.join(who)))
     for s in stickers:
         label = s.get('file', '?')
         emoji = s.get('emoji')
         if not isinstance(emoji, list) or not 1 <= len(emoji) <= 20:
             out.append('%s: "emoji" must be a list of 1 to 20 emoji' % label)
+        elif s.get('pose') in TAG_EMOJI and plain(emoji[0]) != plain(TAG_EMOJI[s['pose']]):
+            out.append('%s: the first emoji of tag %r must be %s (the plugin finds it by that)'
+                       % (label, s['pose'], TAG_EMOJI[s['pose']]))
         if 'file_id' in s:
             out.append('%s: no file_id in a manifest; every bot gets its own (see scripts/file-ids.py)'
                        % label)
@@ -125,6 +167,47 @@ def problems(pack: str) -> list[str]:
 
 def all_packs() -> list[str]:
     return sorted(d for d in os.listdir(PACKS) if os.path.isfile(manifest_path(d)))
+
+
+def shared_tag_problems(packs: list[str]) -> list[str]:
+    """Every set has the same tags, so switching sets in the plugin is one setting."""
+    tag_lists = {}
+    for p in packs:
+        try:
+            tag_lists[p] = [s.get('pose') for s in load(p).get('stickers', [])]
+        except (OSError, ValueError):
+            continue
+    if len({tuple(v) for v in tag_lists.values()}) <= 1:
+        return []
+    return ['the packs do not all have the same tags: %s' % '; '.join(
+        '%s has %s' % (p, ', '.join(v)) for p, v in tag_lists.items())]
+
+
+def plan(pack: str, existing: dict) -> list[str]:
+    """What publishing `pack` to the set Telegram already has (`existing`, a getStickerSet result)
+    takes, as ASCII lines for publish-set.sh:
+      mismatch <position> <tag>          the set's sticker there is not the manifest's (stop)
+      emoji <file_id> <emoji list JSON>  give an existing sticker the manifest's emoji list
+      title                              the set's title differs from the manifest's
+      add <index>                        add the manifest's sticker <index> at the end
+      extra <count>                      the set has stickers the manifest does not list"""
+    m = load(pack)
+    wanted = m['stickers']
+    have = existing.get('stickers', [])
+    lines = []
+    for i, (st, mine) in enumerate(zip(have, wanted)):
+        if plain(st.get('emoji', '')) != plain(mine['emoji'][0]):
+            lines.append('mismatch %d %s' % (i + 1, mine.get('pose', '?')))
+    if lines:
+        return lines
+    for st, mine in zip(have, wanted):
+        lines.append('emoji %s %s' % (st['file_id'], json.dumps(mine['emoji'])))
+    if existing.get('title') != m['title']:
+        lines.append('title')
+    lines += ['add %d' % i for i in range(len(have), len(wanted))]
+    if len(have) > len(wanted):
+        lines.append('extra %d' % (len(have) - len(wanted)))
+    return lines
 
 
 def record(pack: str, name: str) -> list[str]:
@@ -181,7 +264,21 @@ def main(argv: list[str]) -> int:
                     print('  - ' + line)
             else:
                 print('%s: ok (%d stickers)' % (p, len(load(p)['stickers'])))
+        for line in shared_tag_problems(all_packs()):
+            bad += 1
+            print('- ' + line)
         return 1 if bad else 0
+    if cmd == 'list' and not args:
+        print('\n'.join(all_packs()))
+        return 0
+    if cmd == 'tags' and not args:
+        for tag, emoji, meaning in TAGS:
+            print('%-8s %s  %s' % (tag, emoji, meaning))
+        return 0
+    if cmd == 'plan' and len(args) == 1:
+        existing = json.loads(sys.stdin.buffer.read().decode('utf-8'))
+        print('\n'.join(plan(args[0], existing.get('result', existing))))
+        return 0
     if cmd == 'set-name' and len(args) == 2:
         print(set_name(load(args[0]), args[1]))
         return 0

@@ -2,15 +2,15 @@
 """Print the file_id of every sticker in a set, as YOUR bot sees it.
 
 Telegram gives every bot its own file_id for the same sticker, and a file_id from one bot does
-not work for another. So nobody can hand you working ids: your bot has to ask for them. This
-script asks Telegram once (getStickerSet, with your bot's token) and prints them.
+not work for another. The Hermes plugin therefore looks the ids up itself; this script does the
+same lookup by hand, to check that your bot can see a set or to use the ids in your own code.
 
-    BOT_TOKEN=<your bot token> python3 scripts/file-ids.py [set name or t.me link] [--json | --prompt]
+    BOT_TOKEN=<your bot token> python3 scripts/file-ids.py [set] [--json]
 
-Without a set name it uses the Speedy set from packs/speedy/manifest.json.
-  (default)  one line per sticker: pose, emoji, file_id
-  --json     {"done": "<file_id>", ...}, for a config file
-  --prompt   ready-made instructions for an OpenCLAW agent, ids filled in
+[set] is one of this repository's packs (speedy, bit, mochi), a Telegram set name or a
+t.me/addstickers/ link; without it, Speedy.
+  (default)  one line per sticker: tag, first emoji, file_id
+  --json     {"done": "<file_id>", ...}
 
 Reads the token from BOT_TOKEN (or TELEGRAM_BOT_TOKEN); never prints it.
 TELEGRAM_API_BASE points it at another Bot API server (default https://api.telegram.org).
@@ -25,10 +25,6 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pack  # noqa: E402
-
-
-def plain(emoji: str) -> str:
-    return (emoji or '').replace('️', '').strip()
 
 
 def get_set(token: str, name: str) -> dict:
@@ -51,33 +47,22 @@ def get_set(token: str, name: str) -> dict:
     return got['result']
 
 
-def find_manifest(name: str):
-    """The pack this set was made from: by its recorded set name, else by its pack name."""
-    for p in pack.all_packs():
-        m = pack.load(p)
-        if m.get('telegram_set_name') and m['telegram_set_name'].lower() == name.lower():
-            return m
-    for p in pack.all_packs():
-        m = pack.load(p)
-        if name.lower().startswith(pack.base_name(m).lower() + '_by_'):
-            return m
-    return None
+def set_name_for(arg: str) -> str:
+    """A pack name becomes its recorded set name; anything else is taken as a set name or link."""
+    name = arg.rstrip('/').split('/')[-1]
+    if name in pack.all_packs():
+        recorded = pack.load(name).get('telegram_set_name')
+        if not recorded:
+            raise SystemExit('The %s set has not been published yet.' % name)
+        return recorded
+    return name
 
 
-def label(stickers: list, manifest) -> list:
-    """[(pose, emoji, file_id, when)] in set order. Poses come from the manifest by emoji."""
-    by_emoji = {}
-    if manifest:
-        for s in manifest['stickers']:
-            by_emoji.setdefault(plain(s['emoji'][0]), s)
-    rows = []
-    for i, st in enumerate(stickers):
-        info = by_emoji.get(plain(st.get('emoji', '')))
-        if info is None and manifest and len(manifest['stickers']) == len(stickers):
-            info = manifest['stickers'][i]
-        pose = info['pose'] if info else 'sticker%d' % (i + 1)
-        rows.append((pose, st.get('emoji', ''), st['file_id'], info.get('when', '') if info else ''))
-    return rows
+def labels(stickers: list) -> list:
+    """[(tag, first emoji, file_id)] in set order; the tag comes from the sticker's first emoji."""
+    by_emoji = {pack.plain(emoji): tag for tag, emoji, _ in pack.TAGS}
+    return [(by_emoji.get(pack.plain(st.get('emoji', '')), 'sticker%d' % (i + 1)),
+             st.get('emoji', ''), st['file_id']) for i, st in enumerate(stickers)]
 
 
 def main(argv: list[str]) -> int:
@@ -85,37 +70,26 @@ def main(argv: list[str]) -> int:
         sys.stdout.reconfigure(encoding='utf-8')
     args = [a for a in argv[1:] if not a.startswith('--')]
     flags = {a for a in argv[1:] if a.startswith('--')}
-    if flags - {'--json', '--prompt', '--help'} or '--help' in flags or len(args) > 1:
+    if '--help' in flags:
         print(__doc__.strip())
-        return 2 if '--help' not in flags else 0
+        return 0
+    if flags - {'--json'} or len(args) > 1:
+        print(__doc__.strip())
+        return 2
     token = os.environ.get('BOT_TOKEN') or os.environ.get('TELEGRAM_BOT_TOKEN')
     if not token:
         print('Set BOT_TOKEN to your bot\'s token first (the one @BotFather gave you).')
         return 2
-    if args:
-        name = args[0].rstrip('/').split('/')[-1]
-    else:
-        name = pack.load('speedy').get('telegram_set_name') or ''
-        if not name:
-            print('The Speedy set has not been published yet; pass a set name.')
-            return 2
+    name = set_name_for(args[0] if args else 'speedy')
     result = get_set(token, name)
-    rows = label(result['stickers'], find_manifest(result.get('name', name)))
+    rows = labels(result['stickers'])
     if '--json' in flags:
-        print(json.dumps({pose: fid for pose, _, fid, _ in rows}, ensure_ascii=False, indent=2))
-    elif '--prompt' in flags:
-        print('Stickers you can send on Telegram (use the "sticker" action with the fileId):')
-        for pose, emoji, fid, when in rows:
-            if when:
-                print('- When %s, send sticker %s (%s %s).' % (when, fid, emoji, pose))
-            else:
-                print('- Sticker %s (%s %s).' % (fid, emoji, pose))
-        print('Send at most one sticker per reply, and only when one of these moments fits.')
+        print(json.dumps({tag: fid for tag, _, fid in rows}, ensure_ascii=False, indent=2))
     else:
         print('# %s (%s), file_ids for this bot only' % (result.get('title', ''), result.get('name', name)))
         width = max(len(r[0]) for r in rows) if rows else 0
-        for pose, emoji, fid, _ in rows:
-            print('%s  %s  %s' % (pose.ljust(width), emoji, fid))
+        for tag, emoji, fid in rows:
+            print('%s  %s  %s' % (tag.ljust(width), emoji, fid))
     return 0
 
 

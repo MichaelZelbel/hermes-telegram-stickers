@@ -40,9 +40,12 @@ class MockTelegram:
         self.base_url = ''
 
     # -- set-up helpers -------------------------------------------------------------------------
-    def add_set(self, name: str, title: str, emojis: list[str]) -> None:
-        self.sets[name] = {'title': title,
-                           'stickers': [{'emoji': e, 'index': i} for i, e in enumerate(emojis)]}
+    def add_set(self, name: str, title: str, emojis: list, creator: str | None = None) -> None:
+        """`emojis`: one entry per sticker, a primary emoji or a full emoji list. `creator`: the bot
+        token that made the set (only that bot may change it); None lets any bot change it."""
+        lists = [list(e) if isinstance(e, (list, tuple)) else [e] for e in emojis]
+        self.sets[name] = {'title': title, 'creator': _bot_id(creator) if creator else None,
+                           'stickers': [{'emoji_list': l, 'index': i} for i, l in enumerate(lists)]}
 
     def file_id(self, token: str, set_name: str, index: int) -> str:
         """The file_id this bot sees for sticker `index` of `set_name`."""
@@ -150,7 +153,7 @@ class MockTelegram:
         stickers = [{'file_id': self.file_id(token, name, st['index']),
                      'file_unique_id': 'U-%s-%d' % (name, st['index']), 'type': 'regular',
                      'width': 512, 'height': 512, 'is_animated': False, 'is_video': False,
-                     'emoji': st['emoji'], 'set_name': name} for st in s['stickers']]
+                     'emoji': st['emoji_list'][0], 'set_name': name} for st in s['stickers']]
         return 200, {'ok': True, 'result': {'name': name, 'title': s['title'],
                                             'sticker_type': 'regular', 'stickers': stickers}}
 
@@ -179,17 +182,43 @@ class MockTelegram:
         stickers = self._input_stickers(params.get('stickers', '[]'), files)
         if not 1 <= len(stickers) <= 50:
             raise _BadRequest('wrong number of stickers')
-        self.add_set(name, params.get('title', ''), [st['emoji_list'][0] for st in stickers])
+        self.add_set(name, params.get('title', ''), [st['emoji_list'] for st in stickers], creator=token)
         return 200, {'ok': True, 'result': True}
 
-    def _m_addStickerToSet(self, token, params, files):
-        name = params.get('name', '')
+    def _own_set(self, token, name):
         if name not in self.sets:
             raise _BadRequest('STICKERSET_INVALID')
+        creator = self.sets[name]['creator']
+        if creator and creator != _bot_id(token):
+            raise _BadRequest('STICKERSET_NOT_MODIFIED')  # only the bot that made a set may change it
+        return self.sets[name]
+
+    def _m_addStickerToSet(self, token, params, files):
+        stickers = self._own_set(token, params.get('name', ''))['stickers']
         st = self._input_stickers('[%s]' % params.get('sticker', '{}'), files)[0]
-        stickers = self.sets[name]['stickers']
-        stickers.append({'emoji': st['emoji_list'][0], 'index': len(stickers)})
+        stickers.append({'emoji_list': st['emoji_list'], 'index': len(stickers)})
         return 200, {'ok': True, 'result': True}
+
+    def _m_setStickerEmojiList(self, token, params, files):
+        file_id = params.get('sticker', '')
+        prefix = 'FILE-%s-' % _bot_id(token)
+        if not file_id.startswith(prefix):
+            raise _BadRequest('wrong file identifier/HTTP URL specified')
+        set_name, _, index = file_id[len(prefix):].rpartition('-')
+        stickers = self._own_set(token, set_name)['stickers']
+        emoji_list = json.loads(params.get('emoji_list', '[]'))
+        if not 1 <= len(emoji_list) <= 20:
+            raise _BadRequest('emoji_list must have 1 to 20 emoji')
+        stickers[int(index)]['emoji_list'] = emoji_list
+        return 200, {'ok': True, 'result': True}
+
+    def _m_setStickerSetTitle(self, token, params, files):
+        self._own_set(token, params.get('name', ''))['title'] = params.get('title', '')
+        return 200, {'ok': True, 'result': True}
+
+    def emoji_lists(self, name: str) -> list:
+        """The full emoji list of every sticker in a set, in order (what Telegram keeps)."""
+        return [st['emoji_list'] for st in self.sets[name]['stickers']]
 
     def _message(self, chat_id, extra):
         with self._lock:
