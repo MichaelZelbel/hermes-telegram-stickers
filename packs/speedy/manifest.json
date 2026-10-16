@@ -1,0 +1,16 @@
+{
+  "name": "speedy",
+  "title": "Speedy · Godspeed Mission Control",
+  "telegram_set_name": null,
+  "telegram_set": null,
+  "source": "https://godspeedmissioncontrol.com/speedy/",
+  "stickers": [
+    { "pose": "today", "file": "speedy-today.png", "emoji": ["🎧", "👻"], "when": "you start the day or pick up a conversation" },
+    { "pose": "onit", "file": "speedy-onit.png", "emoji": ["💻", "⏳"], "when": "you start working on something that takes a while" },
+    { "pose": "note", "file": "speedy-note.png", "emoji": ["📝", "🌅"], "when": "you send a note, summary or morning briefing" },
+    { "pose": "copy", "file": "speedy-copy.png", "emoji": ["📡", "❓"], "when": "you need the owner's yes on something" },
+    { "pose": "fix", "file": "speedy-fix.png", "emoji": ["🔧", "🛠"], "when": "something broke and you are fixing it" },
+    { "pose": "done", "file": "speedy-done.png", "emoji": ["🫡", "✅"], "when": "you finished something you were asked to do" },
+    { "pose": "quiet", "file": "speedy-quiet.png", "emoji": ["😴", "🌙"], "when": "nothing needs the owner and you are keeping watch" }
+  ]
+}
