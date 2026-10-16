@@ -1,4 +1,4 @@
-# godspeed-stickers is installed
+# hermes-telegram-stickers is installed
 
 Two more steps:
 
@@ -10,4 +10,4 @@ Two more steps:
 
 2. Restart the gateway: `hermes gateway restart`
 
-All seven tags and the optional settings are in the plugin's README.
+Every tag is listed in the main README, the optional settings in the plugin's README.
