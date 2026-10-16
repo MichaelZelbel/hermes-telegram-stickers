@@ -1,6 +1,6 @@
 name: godspeed-stickers
 version: "1.1.0"
-description: "Your agent ends a reply with [[sticker:done]] and the person gets a Telegram sticker, not the tag."
+description: "Your agent ends a reply with a sticker tag such as sticker:done, and the person gets a Speedy sticker on Telegram instead of the tag."
 author: Godspeed Mission Control (https://godspeedmissioncontrol.com)
 kind: standalone
 provides_hooks:
