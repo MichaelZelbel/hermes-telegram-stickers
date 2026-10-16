@@ -49,6 +49,7 @@ EMOJI = ['\U0001F3A7', '\U0001F4BB', '\U0001F4DD', '\U0001F4E1', '\U0001F527', '
          '\U0001F634']
 DONE = 5
 PLUGIN = 'godspeed-stickers'
+HOOKS = ['pre_llm_call', 'transform_llm_output']
 STRIP_ENV = ('HERMES_HOME', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_HOME_CHANNEL', 'TELEGRAM_ALLOWED_USERS',
              'GODSPEED_STICKER_SET', 'GODSPEED_STICKER_API_BASE', 'GODSPEED_STICKER_PLATFORMS',
              'GODSPEED_STICKER_TAGS', 'GODSPEED_STICKER_CHAT', 'OPENAI_API_KEY', 'OPENAI_BASE_URL',
@@ -165,7 +166,7 @@ class HermesInstallTest(unittest.TestCase):
         result = self.probe()
         self.assertTrue(result['found'] and result['enabled'], result)
         self.assertIsNone(result['error'])
-        self.assertEqual(result['hooks'], ['transform_llm_output'])
+        self.assertEqual(sorted(result['hooks']), HOOKS)
 
     def test_2_install_by_hand_as_the_plugin_readme_says(self):
         self.hermes('plugins', 'disable', PLUGIN)
@@ -177,7 +178,7 @@ class HermesInstallTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         result = self.probe()
         self.assertTrue(result['found'] and result['enabled'], result)
-        self.assertEqual(result['hooks'], ['transform_llm_output'])
+        self.assertEqual(sorted(result['hooks']), HOOKS)
 
     def test_3_hook_sends_one_sticker_and_strips_every_tag(self):
         self.write_env(self.sticker_env())
@@ -205,6 +206,15 @@ class HermesInstallTest(unittest.TestCase):
         self.assertIn('no Telegram bot token, so no sticker was sent', log)
 
     def test_5_real_gateway_sends_the_sticker_and_hides_the_tag(self):
+        self.check_gateway()
+
+    def test_6_same_with_plugins_in_their_own_process(self):
+        # Hermes can run third-party plugins in a separate process (plugins.isolation: host,
+        # Hermes 0.22 and later; older versions ignore the setting). The sticker must still
+        # reach the chat being answered.
+        self.check_gateway(isolation='host')
+
+    def check_gateway(self, isolation=None):
         llm = MockLLM('The report is in your inbox.\n\n[[sticker:done]]')
         llm_base = llm.start()
         gateway = None
@@ -215,6 +225,8 @@ class HermesInstallTest(unittest.TestCase):
                             'GODSPEED_STICKER_SET': SET, 'GODSPEED_STICKER_API_BASE': self.tg_base,
                             'OPENAI_API_KEY': 'mock-key'})
             self.configure_gateway(llm_base)
+            r = self.hermes('config', 'set', 'plugins.isolation', isolation or 'in_process')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
             log_path = os.path.join(self.tmp.name, 'gateway-test.log')
             with open(log_path, 'w', encoding='utf-8') as log:
@@ -241,7 +253,8 @@ class HermesInstallTest(unittest.TestCase):
                             and 'report is in your inbox' in c['params'].get('text', ''))
             self.assertLess(sticker_at, reply_at)
             self.assertTrue(llm.requests, 'the model stand-in was never asked')
-            print('\n    gateway -> Telegram: %s' % ' '.join(
+            print('\n    plugins.isolation: %s' % (isolation or 'in_process'), file=sys.stderr)
+            print('    gateway -> Telegram: %s' % ' '.join(
                 c['method'] for c in self.tg.calls if c['method'] != 'getUpdates'), file=sys.stderr)
             print('    text the person sees: %r' % texts[-1], file=sys.stderr)
         finally:
@@ -251,19 +264,15 @@ class HermesInstallTest(unittest.TestCase):
 
     # -- gateway helpers -------------------------------------------------------------------------
     def configure_gateway(self, llm_base):
-        import yaml  # comes with hermes-agent
-        path = os.path.join(self.home, 'config.yaml')
-        cfg = {}
-        if os.path.exists(path):
-            with open(path, encoding='utf-8') as fh:
-                cfg = yaml.safe_load(fh) or {}
-        cfg['model'] = {'provider': 'custom', 'base_url': llm_base, 'default': 'mock-model',
-                        'api_key': 'mock-key'}
-        platforms = cfg.setdefault('platforms', {})
-        platforms['telegram'] = {'enabled': True, 'extra': {
-            'base_url': self.tg_base + '/bot', 'base_file_url': self.tg_base + '/file/bot'}}
-        with open(path, 'w', encoding='utf-8') as fh:
-            yaml.safe_dump(cfg, fh, sort_keys=False, allow_unicode=True)
+        """Point the throwaway Hermes at the stand-in model and the stand-in Telegram, with
+        Hermes's own `hermes config set` (the Telegram adapter's base_url is its documented
+        setting for a self-hosted Bot API server)."""
+        for key, value in (('model.provider', 'custom'), ('model.base_url', llm_base),
+                           ('model.default', 'mock-model'), ('model.api_key', 'mock-key'),
+                           ('platforms.telegram.extra.base_url', self.tg_base + '/bot'),
+                           ('platforms.telegram.extra.base_file_url', self.tg_base + '/file/bot')):
+            r = self.hermes('config', 'set', key, value)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def final_texts(self):
         # Hermes sends Telegram MarkdownV2, which escapes punctuation (inbox\.); undo that.

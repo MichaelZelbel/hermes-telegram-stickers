@@ -94,17 +94,43 @@ class PluginTest(unittest.TestCase):
         self.env.stop()
         self.home.cleanup()
 
-    def reply(self, text, platform='telegram'):
+    def reply(self, text, platform='telegram', session='s1'):
         return self.ctx.hooks['transform_llm_output'][0](
-            response_text=text, session_id='s1', model='m', platform=platform,
+            response_text=text, session_id=session, model='m', platform=platform,
+            telemetry_schema_version=1)
+
+    def turn_starts(self, session, sender, platform='telegram'):
+        return self.ctx.hooks['pre_llm_call'][0](
+            session_id=session, task_id='t', turn_id='1', user_message='hi', conversation_history=[],
+            is_first_turn=True, model='m', platform=platform, sender_id=sender,
             telemetry_schema_version=1)
 
     def sent(self):
         return self.tg.calls_to('sendSticker')
 
     # -- the checks ------------------------------------------------------------------------------
-    def test_register_adds_the_reply_hook(self):
-        self.assertEqual(list(self.ctx.hooks), ['transform_llm_output'])
+    def test_register_adds_its_two_hooks(self):
+        self.assertEqual(sorted(self.ctx.hooks), ['pre_llm_call', 'transform_llm_output'])
+
+    def test_turn_start_adds_nothing_to_the_prompt(self):
+        self.assertIsNone(self.turn_starts('s1', '424242'))
+        self.assertEqual(self.tg.calls, [])
+
+    def test_person_being_answered_beats_home_channel_and_allowed_users(self):
+        # What happens when Hermes runs plugins in a separate process and the gateway's own
+        # record of the chat is out of reach: the user the turn started with gets the sticker.
+        os.environ['TELEGRAM_ALLOWED_USERS'] = '999001,555'
+        self.turn_starts('s-anna', '555')
+        self.reply('ok [[sticker:done]]', session='s-anna')
+        self.assertEqual(self.sent()[0]['params']['chat_id'], '555')
+        self.tg.calls.clear()
+        self.reply('ok [[sticker:done]]', session='s-unknown')  # nobody remembered: home channel
+        self.assertEqual(self.sent()[0]['params']['chat_id'], '424242')
+
+    def test_person_is_only_remembered_for_telegram(self):
+        self.turn_starts('s-cli', '555', platform='cli')
+        self.reply('ok [[sticker:done]]', session='s-cli')
+        self.assertEqual(self.sent()[0]['params']['chat_id'], '424242')
 
     def test_done_tag_sends_exactly_one_done_sticker_and_disappears(self):
         out = self.reply('The report is in your inbox.\n\n[[sticker:done]]')

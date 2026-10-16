@@ -50,6 +50,9 @@ sender = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sender)
 
 _warned: set[str] = set()
+# session id -> the Telegram user that session is answering, from pre_llm_call. Used when the
+# gateway's own record of the chat is out of reach (Hermes's plugins.isolation: host).
+_people: dict[str, str] = {}
 
 
 def _warn_once(key: str, message: str, *args) -> None:
@@ -106,6 +109,7 @@ def explain(outcome: str, name: str) -> str | None:
 
 
 def register(ctx):
+    ctx.register_hook('pre_llm_call', on_pre_llm_call)
     ctx.register_hook('transform_llm_output', on_transform_llm_output)
     problems = []
     if not sender.setting('TELEGRAM_BOT_TOKEN'):
@@ -120,7 +124,20 @@ def register(ctx):
                     ', '.join(sorted(tags())))
 
 
-def on_transform_llm_output(response_text: str = '', platform: str = '', **_):
+def on_pre_llm_call(session_id: str = '', platform: str = '', sender_id: str = '', **_):
+    """Remember who this session is answering. Returns None: nothing is added to the prompt."""
+    try:
+        if session_id and sender_id and (platform or '').lower() == 'telegram':
+            _people[str(session_id)] = str(sender_id)
+            while len(_people) > 500:
+                _people.pop(next(iter(_people)))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def on_transform_llm_output(response_text: str = '', platform: str = '', session_id: str = '',
+                            **_):
     """Send the first known sticker tag's sticker, and return the reply with every tag removed."""
     text = response_text or ''
     found = [m.lower() for m in TAG_RE.findall(text)]
@@ -140,7 +157,8 @@ def on_transform_llm_output(response_text: str = '', platform: str = '', **_):
                     _warn_once('no-set', 'godspeed-stickers: no sticker set configured, so no '
                                'sticker was sent. Set GODSPEED_STICKER_SET in ~/.hermes/.env.')
                 else:
-                    outcome = sender.send(sticker_set(), known[wanted])
+                    outcome = sender.send(sticker_set(), known[wanted],
+                                          person=_people.get(str(session_id), ''))
                     message = explain(outcome, wanted)
                     if message:
                         logger.warning(message)

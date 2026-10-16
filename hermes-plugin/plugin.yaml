@@ -4,6 +4,7 @@ description: "Your agent ends a reply with [[sticker:done]] and the person gets 
 author: Godspeed Mission Control (https://godspeedmissioncontrol.com)
 kind: standalone
 provides_hooks:
+  - pre_llm_call
   - transform_llm_output
 requires_env:
   - name: TELEGRAM_BOT_TOKEN

@@ -74,15 +74,19 @@ def _session_chat():
         return '', ''
 
 
-def target_chat():
-    """Where the sticker goes: GODSPEED_STICKER_CHAT if set, else the chat being answered,
-    else the gateway's home channel, else the first allowed user. Returns (chat_id, thread_id)."""
+def target_chat(person: str = ''):
+    """Where the sticker goes: GODSPEED_STICKER_CHAT if set, else the chat being answered (from
+    the gateway), else `person` (the Telegram user being answered, whose private chat has the
+    same id), else the gateway's home channel, else the first allowed user.
+    Returns (chat_id, thread_id)."""
     fixed = setting('GODSPEED_STICKER_CHAT')
     if fixed:
         return fixed, ''
     chat, thread = _session_chat()
     if chat:
         return chat, thread
+    if person and person.lstrip('-').isdigit():
+        return person, ''
     home = setting('TELEGRAM_HOME_CHANNEL')
     if home:
         return home, setting('TELEGRAM_HOME_CHANNEL_THREAD_ID')
@@ -126,14 +130,14 @@ def _set_ids(token: str, set_name: str, refresh: bool = False) -> dict:
     return _sets[key]
 
 
-def send(set_name: str, emoji: str) -> str:
+def send(set_name: str, emoji: str, person: str = '') -> str:
     """Send the sticker carrying `emoji` from `set_name`, silently. Returns a short outcome
     ('sent', 'no-token', 'no-chat', 'no-such-set: ...', 'no-such-sticker', 'refused: ...',
     'failed: ...'); never raises and never includes the bot token."""
     token = setting('TELEGRAM_BOT_TOKEN')
     if not token:
         return 'no-token'
-    chat, thread = target_chat()
+    chat, thread = target_chat(person)
     if not chat:
         return 'no-chat'
     try:
