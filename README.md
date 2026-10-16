@@ -30,7 +30,7 @@ Add them: https://t.me/addstickers/speedy_by_GodspeedStickersBot
 </p>
 
 **Bit**, a pixel art robot.
-Add them: https://t.me/addstickers/bit_by_<BOT>
+Add them: https://t.me/addstickers/bit_by_GodspeedStickersBot
 
 <p>
 <img src="packs/bit/bit-today.png" width="52" alt="Bit: here and listening">
@@ -51,7 +51,7 @@ Add them: https://t.me/addstickers/bit_by_<BOT>
 </p>
 
 **Mochi**, an ink doodle cat.
-Add them: https://t.me/addstickers/mochi_by_<BOT>
+Add them: https://t.me/addstickers/mochi_by_GodspeedStickersBot
 
 <p>
 <img src="packs/mochi/mochi-today.png" width="52" alt="Mochi: here and listening">
@@ -70,9 +70,6 @@ Add them: https://t.me/addstickers/mochi_by_<BOT>
 <img src="packs/mochi/mochi-morning.png" width="52" alt="Mochi: good morning">
 <img src="packs/mochi/mochi-night.png" width="52" alt="Mochi: good night">
 </p>
-
-<!-- The bit and mochi set names above are filled in by scripts/publish-set.sh
-     when the sets are published. -->
 
 ## Let your Hermes bot send them
 

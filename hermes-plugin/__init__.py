@@ -33,8 +33,8 @@ NAME = 'hermes-telegram-stickers'
 # The sets this repository publishes. scripts/publish-set.sh fills in each set's Telegram name.
 SETS = {
     'speedy': 'speedy_by_GodspeedStickersBot',
-    'bit': 'bit_by_<BOT>',
-    'mochi': 'mochi_by_<BOT>',
+    'bit': 'bit_by_GodspeedStickersBot',
+    'mochi': 'mochi_by_GodspeedStickersBot',
 }
 DEFAULT = 'speedy'
 

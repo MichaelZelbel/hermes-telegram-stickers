@@ -1,8 +1,8 @@
 {
   "name": "bit",
   "title": "Bit · pixel robot",
-  "telegram_set_name": null,
-  "telegram_set": null,
+  "telegram_set_name": "bit_by_GodspeedStickersBot",
+  "telegram_set": "https://t.me/addstickers/bit_by_GodspeedStickersBot",
   "stickers": [
     { "pose": "today", "file": "bit-today.png", "emoji": ["🎧", "🤖"] },
     { "pose": "onit", "file": "bit-onit.png", "emoji": ["💻", "⏳"] },

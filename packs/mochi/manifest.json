@@ -1,8 +1,8 @@
 {
   "name": "mochi",
   "title": "Mochi · ink doodle cat",
-  "telegram_set_name": null,
-  "telegram_set": null,
+  "telegram_set_name": "mochi_by_GodspeedStickersBot",
+  "telegram_set": "https://t.me/addstickers/mochi_by_GodspeedStickersBot",
   "stickers": [
     { "pose": "today", "file": "mochi-today.png", "emoji": ["🎧", "🐱"] },
     { "pose": "onit", "file": "mochi-onit.png", "emoji": ["💻", "⏳"] },
