@@ -1,0 +1,23 @@
+{
+  "name": "bit",
+  "title": "Bit · pixel robot",
+  "telegram_set_name": null,
+  "telegram_set": null,
+  "stickers": [
+    { "pose": "today", "file": "bit-today.png", "emoji": ["🎧", "🤖"] },
+    { "pose": "onit", "file": "bit-onit.png", "emoji": ["💻", "⏳"] },
+    { "pose": "note", "file": "bit-note.png", "emoji": ["📝", "🌅"] },
+    { "pose": "copy", "file": "bit-copy.png", "emoji": ["📡", "❓"] },
+    { "pose": "fix", "file": "bit-fix.png", "emoji": ["🔧", "🛠"] },
+    { "pose": "done", "file": "bit-done.png", "emoji": ["🫡", "✅"] },
+    { "pose": "quiet", "file": "bit-quiet.png", "emoji": ["😴", "💤"] },
+    { "pose": "ok", "file": "bit-ok.png", "emoji": ["👍", "👌"] },
+    { "pose": "think", "file": "bit-think.png", "emoji": ["🤔", "💭"] },
+    { "pose": "found", "file": "bit-found.png", "emoji": ["🔍", "💡"] },
+    { "pose": "oops", "file": "bit-oops.png", "emoji": ["😅", "🙈"] },
+    { "pose": "party", "file": "bit-party.png", "emoji": ["🎉", "🥳"] },
+    { "pose": "thanks", "file": "bit-thanks.png", "emoji": ["🙏", "💛"] },
+    { "pose": "morning", "file": "bit-morning.png", "emoji": ["☕", "🌄"] },
+    { "pose": "night", "file": "bit-night.png", "emoji": ["🌙", "⭐"] }
+  ]
+}

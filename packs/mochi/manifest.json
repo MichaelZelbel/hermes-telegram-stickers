@@ -1,0 +1,23 @@
+{
+  "name": "mochi",
+  "title": "Mochi · ink doodle cat",
+  "telegram_set_name": null,
+  "telegram_set": null,
+  "stickers": [
+    { "pose": "today", "file": "mochi-today.png", "emoji": ["🎧", "🐱"] },
+    { "pose": "onit", "file": "mochi-onit.png", "emoji": ["💻", "⏳"] },
+    { "pose": "note", "file": "mochi-note.png", "emoji": ["📝", "🌅"] },
+    { "pose": "copy", "file": "mochi-copy.png", "emoji": ["📡", "❓"] },
+    { "pose": "fix", "file": "mochi-fix.png", "emoji": ["🔧", "🛠"] },
+    { "pose": "done", "file": "mochi-done.png", "emoji": ["🫡", "✅"] },
+    { "pose": "quiet", "file": "mochi-quiet.png", "emoji": ["😴", "💤"] },
+    { "pose": "ok", "file": "mochi-ok.png", "emoji": ["👍", "👌"] },
+    { "pose": "think", "file": "mochi-think.png", "emoji": ["🤔", "💭"] },
+    { "pose": "found", "file": "mochi-found.png", "emoji": ["🔍", "💡"] },
+    { "pose": "oops", "file": "mochi-oops.png", "emoji": ["😅", "🙈"] },
+    { "pose": "party", "file": "mochi-party.png", "emoji": ["🎉", "🥳"] },
+    { "pose": "thanks", "file": "mochi-thanks.png", "emoji": ["🙏", "💛"] },
+    { "pose": "morning", "file": "mochi-morning.png", "emoji": ["☕", "🌄"] },
+    { "pose": "night", "file": "mochi-night.png", "emoji": ["🌙", "⭐"] }
+  ]
+}

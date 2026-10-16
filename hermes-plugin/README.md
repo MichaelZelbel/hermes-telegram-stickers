@@ -52,8 +52,8 @@ Every tag and what it means is listed in the [main README](../README.md#the-tags
 
 All optional. Put them in `~/.hermes/.env` and restart the gateway.
 
-- `STICKERS_SET`: which stickers to send. `speedy` (the default), or the name of any Telegram
-  sticker set, the part after `t.me/addstickers/`.
+- `STICKERS_SET`: which stickers to send. `speedy` (the default), `bit`, `mochi`, or the name of
+  any Telegram sticker set, the part after `t.me/addstickers/`.
 - `STICKERS_TAGS`: your own tags for your own set, as `tag=emoji` pairs:
   `STICKERS_TAGS=yay=🎉,hmm=🤔`. Each emoji must be the first emoji of that sticker in the set.
   This replaces the built-in tags.

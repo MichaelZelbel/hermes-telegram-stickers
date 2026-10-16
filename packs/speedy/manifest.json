@@ -11,6 +11,14 @@
     { "pose": "copy", "file": "speedy-copy.png", "emoji": ["📡", "❓"] },
     { "pose": "fix", "file": "speedy-fix.png", "emoji": ["🔧", "🛠"] },
     { "pose": "done", "file": "speedy-done.png", "emoji": ["🫡", "✅"] },
-    { "pose": "quiet", "file": "speedy-quiet.png", "emoji": ["😴", "💤"] }
+    { "pose": "quiet", "file": "speedy-quiet.png", "emoji": ["😴", "💤"] },
+    { "pose": "ok", "file": "speedy-ok.png", "emoji": ["👍", "👌"] },
+    { "pose": "think", "file": "speedy-think.png", "emoji": ["🤔", "💭"] },
+    { "pose": "found", "file": "speedy-found.png", "emoji": ["🔍", "💡"] },
+    { "pose": "oops", "file": "speedy-oops.png", "emoji": ["😅", "🙈"] },
+    { "pose": "party", "file": "speedy-party.png", "emoji": ["🎉", "🥳"] },
+    { "pose": "thanks", "file": "speedy-thanks.png", "emoji": ["🙏", "💛"] },
+    { "pose": "morning", "file": "speedy-morning.png", "emoji": ["☕", "🌄"] },
+    { "pose": "night", "file": "speedy-night.png", "emoji": ["🌙", "⭐"] }
   ]
 }
