@@ -24,7 +24,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PLUGIN_DIR = os.path.join(ROOT, 'hermes-plugin')
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 
+import pack  # noqa: E402
 from mock_telegram import MockTelegram  # noqa: E402
 
 # The plugin's warnings are checked with assertLogs; keep them out of the test output otherwise.
@@ -33,14 +35,15 @@ logging.getLogger().addHandler(logging.NullHandler())
 TOKEN = '111111:test-operator-token'
 OTHER_TOKEN = '222222:someone-elses-token'
 SET = 'speedy_by_OperatorTestBot'
-SPEEDY_EMOJI = ['\U0001F3A7', '\U0001F4BB', '\U0001F4DD', '\U0001F4E1', '\U0001F527',
-                '\U0001FAE1', '\U0001F634']
-POSES = ['today', 'onit', 'note', 'copy', 'fix', 'done', 'quiet']
+BIT = 'bit_by_OperatorTestBot'
+POSES = [tag for tag, _, _ in pack.TAGS]       # the 15 tags, in set order
+EMOJI = [emoji for _, emoji, _ in pack.TAGS]   # their first emoji
+# A sticker's full emoji list, as a set really carries it: the tag's emoji first, one more after.
+FULL = [[e, '\U0001F47B' if i == 0 else '\u2B50'] if i in (0, 14) else [e] for i, e in enumerate(EMOJI)]
 ENV_KEYS = ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_HOME_CHANNEL', 'TELEGRAM_HOME_CHANNEL_THREAD_ID',
-            'TELEGRAM_ALLOWED_USERS', 'GODSPEED_STICKER_SET', 'GODSPEED_STICKER_TAGS',
-            'GODSPEED_STICKER_PLATFORMS', 'GODSPEED_STICKER_CHAT', 'GODSPEED_STICKER_API_BASE',
-            'HERMES_HOME', 'HERMES_SESSION_PLATFORM', 'HERMES_SESSION_CHAT_ID',
-            'HERMES_SESSION_THREAD_ID')
+            'TELEGRAM_ALLOWED_USERS', 'STICKERS_SET', 'STICKERS_TAGS', 'STICKERS_PLATFORMS',
+            'STICKERS_CHAT', 'STICKERS_API_BASE', 'HERMES_HOME', 'HERMES_SESSION_PLATFORM',
+            'HERMES_SESSION_CHAT_ID', 'HERMES_SESSION_THREAD_ID')
 
 _loaded = 0
 
@@ -49,7 +52,7 @@ def load_plugin():
     """Import hermes-plugin/ as a package, the way Hermes's plugin loader does."""
     global _loaded
     _loaded += 1
-    name = 'hermes_plugins_test_%d.godspeed_stickers' % _loaded
+    name = 'hermes_plugins_test_%d.hermes_telegram_stickers' % _loaded
     spec = importlib.util.spec_from_file_location(
         name, os.path.join(PLUGIN_DIR, '__init__.py'), submodule_search_locations=[PLUGIN_DIR])
     module = importlib.util.module_from_spec(spec)
@@ -70,7 +73,12 @@ class PluginTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tg = MockTelegram({TOKEN: 'OperatorTestBot', OTHER_TOKEN: 'SomeoneElsesBot'})
-        cls.tg.add_set(SET, 'Speedy', SPEEDY_EMOJI)
+        cls.tg.add_set(SET, 'Speedy', FULL)
+        cls.tg.add_set(BIT, 'Bit', FULL)
+        # quiet carries the moon as its SECOND emoji, and there is no night sticker
+        cls.tg.add_set('trap_by_OperatorTestBot', 'Trap', [[EMOJI[6], EMOJI[14]]])
+        # two stickers share the first emoji of done
+        cls.tg.add_set('twins_by_OperatorTestBot', 'Twins', [EMOJI[5], [EMOJI[5], EMOJI[0]]])
         cls.base = cls.tg.start()
 
     @classmethod
@@ -82,8 +90,8 @@ class PluginTest(unittest.TestCase):
         self.home = tempfile.TemporaryDirectory()
         env = {k: v for k, v in os.environ.items() if k not in ENV_KEYS}
         env.update({'HERMES_HOME': self.home.name, 'TELEGRAM_BOT_TOKEN': TOKEN,
-                    'TELEGRAM_HOME_CHANNEL': '424242', 'GODSPEED_STICKER_SET': SET,
-                    'GODSPEED_STICKER_API_BASE': self.base})
+                    'TELEGRAM_HOME_CHANNEL': '424242', 'STICKERS_SET': SET,
+                    'STICKERS_API_BASE': self.base})
         self.env = mock.patch.dict(os.environ, env, clear=True)
         self.env.start()
         self.plugin = load_plugin()
@@ -163,10 +171,10 @@ class PluginTest(unittest.TestCase):
 
     def test_unknown_tag_is_removed_without_sending_or_crashing(self):
         with self.assertLogs(level=logging.WARNING) as logs:
-            out = self.reply('Here you go. [[sticker:party]]')
+            out = self.reply('Here you go. [[sticker:banana]]')
         self.assertEqual(out, 'Here you go.')
         self.assertEqual(self.sent(), [])
-        self.assertIn('unknown tag [[sticker:party]]', '\n'.join(logs.output))
+        self.assertIn('unknown tag [[sticker:banana]]', '\n'.join(logs.output))
 
     def test_several_tags_send_one_sticker_and_all_tags_go(self):
         out = self.reply('[[sticker:onit]] Working.\n[[sticker:wat]]\nDone now. [[sticker:done]]')
@@ -211,28 +219,74 @@ class PluginTest(unittest.TestCase):
         self.assertEqual(self.sent()[0]['params']['chat_id'], '777')
 
     def test_unknown_set_is_reported_not_raised(self):
-        os.environ['GODSPEED_STICKER_SET'] = 'nope_by_OperatorTestBot'
+        os.environ['STICKERS_SET'] = 'nope_by_OperatorTestBot'
         with self.assertLogs(level=logging.WARNING) as logs:
             out = self.reply('ok [[sticker:done]]')
         self.assertEqual(out, 'ok')
         self.assertIn('no sticker set', '\n'.join(logs.output))
         self.assertIn('STICKERSET_INVALID', '\n'.join(logs.output))
 
-    def test_unpublished_default_set_does_not_call_telegram(self):
-        del os.environ['GODSPEED_STICKER_SET']
-        self.plugin.DEFAULT_SET = 'speedy_by_<BOT>'  # as shipped before publish-set.sh fills it in
+    def test_unpublished_set_does_not_call_telegram(self):
+        os.environ['STICKERS_SET'] = 'bit'
+        self.plugin.SETS['bit'] = 'bit_by_<BOT>'  # as shipped before publish-set.sh fills it in
         with self.assertLogs(level=logging.WARNING) as logs:
             out = self.reply('ok [[sticker:done]]')
         self.assertEqual(out, 'ok')
         self.assertEqual(self.tg.calls, [])
-        self.assertIn('no sticker set configured', '\n'.join(logs.output))
+        self.assertIn('the bit set is not published yet', '\n'.join(logs.output))
+
+    def test_register_says_when_the_chosen_set_is_not_published(self):
+        os.environ['STICKERS_SET'] = 'mochi'
+        plugin = load_plugin()
+        plugin.SETS['mochi'] = 'mochi_by_<BOT>'
+        with self.assertLogs(level=logging.WARNING) as logs:
+            plugin.register(FakeContext())
+        self.assertIn('the mochi set is not published yet', '\n'.join(logs.output))
+
+    def test_set_chosen_by_short_name(self):
+        self.plugin.SETS['bit'] = BIT
+        os.environ['STICKERS_SET'] = 'Bit'
+        self.reply('ok [[sticker:done]]')
+        self.assertEqual(self.sent()[0]['params']['sticker'], self.tg.file_id(TOKEN, BIT, 5))
+
+    def test_speedy_is_the_default(self):
+        del os.environ['STICKERS_SET']
+        self.plugin.SETS['speedy'] = SET
+        self.reply('ok [[sticker:done]]')
+        self.assertEqual(self.sent()[0]['params']['sticker'], self.tg.file_id(TOKEN, SET, 5))
+        self.assertEqual(self.plugin.DEFAULT, 'speedy')
+
+    def test_plugin_tags_are_the_repository_tags(self):
+        # The plugin is installed on its own, so it carries its own copy; it must match.
+        self.assertEqual(list(self.plugin.TAGS.items()), [(t, e) for t, e, _ in pack.TAGS])
+        self.assertEqual(sorted(self.plugin.SETS), ['bit', 'mochi', 'speedy'])
+        self.assertLessEqual(set(pack.all_packs()), set(self.plugin.SETS))
+
+    def test_only_the_first_emoji_finds_a_sticker(self):
+        os.environ['STICKERS_SET'] = 'trap_by_OperatorTestBot'
+        with self.assertLogs(level=logging.WARNING) as logs:
+            out = self.reply('Sleep well. [[sticker:night]]')
+        self.assertEqual(out, 'Sleep well.')
+        self.assertEqual(self.sent(), [])
+        self.assertIn("has no sticker whose first emoji is the one for tag 'night'", '\n'.join(logs.output))
+
+    def test_two_stickers_with_one_first_emoji_send_nothing(self):
+        os.environ['STICKERS_SET'] = 'twins_by_OperatorTestBot'
+        with self.assertLogs(level=logging.WARNING) as logs:
+            out = self.reply('Done. [[sticker:done]]')
+        self.assertEqual(out, 'Done.')
+        self.assertEqual(self.sent(), [])
+        self.assertIn("two stickers have the first emoji of tag 'done'", '\n'.join(logs.output))
+        self.tg.calls.clear()
+        self.reply('Hi. [[sticker:today]]')  # the second twin's other emoji does not count either
+        self.assertEqual(self.sent(), [])
 
     def test_other_platforms_only_strip_the_tag(self):
         self.assertEqual(self.reply('ok [[sticker:done]]', platform='cli'), 'ok')
         self.assertEqual(self.sent(), [])
 
     def test_platform_list_can_be_widened(self):
-        os.environ['GODSPEED_STICKER_PLATFORMS'] = 'telegram,cron'
+        os.environ['STICKERS_PLATFORMS'] = 'telegram,cron'
         self.reply('ok [[sticker:done]]', platform='cron')
         self.assertEqual(len(self.sent()), 1)
 
@@ -249,7 +303,7 @@ class PluginTest(unittest.TestCase):
         self.assertEqual(len(self.sent()), 1)
 
     def test_custom_tags_for_your_own_set(self):
-        os.environ['GODSPEED_STICKER_TAGS'] = 'yay=\U0001FAE1,hmm=\U0001F4E1'
+        os.environ['STICKERS_TAGS'] = 'yay=\U0001FAE1,hmm=\U0001F4E1'
         self.reply('ok [[sticker:yay]]')
         self.assertEqual(self.sent()[0]['params']['sticker'], self.tg.file_id(TOKEN, SET, 5))
         self.tg.calls.clear()
@@ -257,7 +311,7 @@ class PluginTest(unittest.TestCase):
         self.assertEqual(self.sent(), [])
 
     def test_fixed_chat_overrides_home_channel(self):
-        os.environ['GODSPEED_STICKER_CHAT'] = '-100123'
+        os.environ['STICKERS_CHAT'] = '-100123'
         self.reply('ok [[sticker:done]]')
         self.assertEqual(self.sent()[0]['params']['chat_id'], '-100123')
 
@@ -266,7 +320,7 @@ class PluginTest(unittest.TestCase):
         self.assertIs(self.sent()[0]['params']['disable_notification'], True)
 
     def test_telegram_down_never_breaks_the_reply_or_leaks_the_token(self):
-        os.environ['GODSPEED_STICKER_API_BASE'] = 'http://127.0.0.1:9'  # nothing listens there
+        os.environ['STICKERS_API_BASE'] = 'http://127.0.0.1:9'  # nothing listens there
         with self.assertLogs(level=logging.WARNING) as logs:
             out = self.reply('ok [[sticker:done]]')
         self.assertEqual(out, 'ok')
@@ -274,7 +328,7 @@ class PluginTest(unittest.TestCase):
         self.assertNotIn('test-operator-token', '\n'.join(logs.output))
 
     def test_bad_api_base_error_does_not_leak_the_token(self):
-        os.environ['GODSPEED_STICKER_API_BASE'] = 'htp:/broken'
+        os.environ['STICKERS_API_BASE'] = 'htp:/broken'
         with self.assertLogs(level=logging.WARNING) as logs:
             self.reply('ok [[sticker:done]]')
         self.assertNotIn('test-operator-token', '\n'.join(logs.output))

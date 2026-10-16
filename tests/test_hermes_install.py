@@ -48,11 +48,11 @@ OWNER = 424242
 EMOJI = ['\U0001F3A7', '\U0001F4BB', '\U0001F4DD', '\U0001F4E1', '\U0001F527', '\U0001FAE1',
          '\U0001F634']
 DONE = 5
-PLUGIN = 'godspeed-stickers'
+PLUGIN = 'hermes-telegram-stickers'
 HOOKS = ['pre_llm_call', 'transform_llm_output']
 STRIP_ENV = ('HERMES_HOME', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_HOME_CHANNEL', 'TELEGRAM_ALLOWED_USERS',
-             'GODSPEED_STICKER_SET', 'GODSPEED_STICKER_API_BASE', 'GODSPEED_STICKER_PLATFORMS',
-             'GODSPEED_STICKER_TAGS', 'GODSPEED_STICKER_CHAT', 'OPENAI_API_KEY', 'OPENAI_BASE_URL',
+             'STICKERS_SET', 'STICKERS_API_BASE', 'STICKERS_PLATFORMS',
+             'STICKERS_TAGS', 'STICKERS_CHAT', 'OPENAI_API_KEY', 'OPENAI_BASE_URL',
              'OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY')
 
 # Runs inside the throwaway Hermes home: Hermes's own plugin loader, then the hook the agent
@@ -67,7 +67,7 @@ LOADER_PROBE = textwrap.dedent('''
     logging.getLogger().setLevel(logging.INFO)
     from hermes_cli import plugins
     plugins.discover_plugins()
-    loaded = plugins.get_plugin_manager()._plugins.get('godspeed-stickers')
+    loaded = plugins.get_plugin_manager()._plugins.get('hermes-telegram-stickers')
     out = {'found': loaded is not None}
     if loaded is not None:
         out.update(enabled=loaded.enabled, error=loaded.error, hooks=loaded.hooks_registered)
@@ -75,9 +75,9 @@ LOADER_PROBE = textwrap.dedent('''
         return plugins.invoke_hook('transform_llm_output', response_text=text, session_id='probe',
                                    model='mock-model', platform='telegram')
     out['done'] = reply('The report is in your inbox.\\n\\n[[sticker:done]]')
-    out['unknown'] = reply('Here it is. [[sticker:party]]')
+    out['unknown'] = reply('Here it is. [[sticker:banana]]')
     out['plain'] = reply('Nothing to tag here.')
-    out['log'] = [m for m in seen if 'godspeed-stickers' in m]
+    out['log'] = [m for m in seen if 'hermes-telegram-stickers' in m]
     print('PROBE ' + json.dumps(out))
 ''')
 
@@ -95,7 +95,7 @@ class HermesInstallTest(unittest.TestCase):
         cls.write_env(cls.sticker_env())
         cls.git_install = None
         if shutil.which('git'):
-            # The README says `hermes plugins install MichaelZelbel/godspeed-stickers/hermes-plugin`.
+            # The README says `hermes plugins install MichaelZelbel/hermes-telegram-stickers/hermes-plugin`.
             # Same installer and the same subfolder; only the address is a local git copy of this
             # repository, because the test must not depend on GitHub.
             src = os.path.join(cls.tmp.name, 'repo-for-git')
@@ -139,7 +139,7 @@ class HermesInstallTest(unittest.TestCase):
     @classmethod
     def sticker_env(cls):
         return {'TELEGRAM_BOT_TOKEN': TOKEN, 'TELEGRAM_HOME_CHANNEL': str(OWNER),
-                'GODSPEED_STICKER_SET': SET, 'GODSPEED_STICKER_API_BASE': cls.tg_base}
+                'STICKERS_SET': SET, 'STICKERS_API_BASE': cls.tg_base}
 
     def probe(self):
         r = subprocess.run([sys.executable, '-c', LOADER_PROBE], cwd=self.tmp.name, env=self.env(),
@@ -157,8 +157,8 @@ class HermesInstallTest(unittest.TestCase):
             self.skipTest('needs git')
         out = self.git_install.stdout + self.git_install.stderr
         self.assertEqual(self.git_install.returncode, 0, out)
-        self.assertIn('godspeed-stickers is installed', out)  # after-install.md was shown
-        self.assertIn('Plugin godspeed-stickers enabled', out)
+        self.assertIn('hermes-telegram-stickers is installed', out)  # after-install.md was shown
+        self.assertIn('Plugin hermes-telegram-stickers enabled', out)
         for name in ('__init__.py', 'sticker_sender.py', 'plugin.yaml'):
             self.assertTrue(os.path.isfile(self.plugin_file(name)), name)
         self.assertIn(PLUGIN, self.hermes('plugins', 'list').stdout)
@@ -192,10 +192,10 @@ class HermesInstallTest(unittest.TestCase):
         self.assertEqual(len(sent), 1, self.tg.calls)
         self.assertEqual(sent[0]['params']['sticker'], self.tg.file_id(TOKEN, SET, DONE))
         self.assertEqual(sent[0]['params']['chat_id'], str(OWNER))
-        self.assertTrue(any('unknown tag [[sticker:party]]' in m for m in result['log']), result['log'])
+        self.assertTrue(any('unknown tag [[sticker:banana]]' in m for m in result['log']), result['log'])
 
     def test_4_missing_credentials_are_explained(self):
-        self.write_env({'GODSPEED_STICKER_SET': SET, 'GODSPEED_STICKER_API_BASE': self.tg_base})
+        self.write_env({'STICKERS_SET': SET, 'STICKERS_API_BASE': self.tg_base})
         result = self.probe()
 
         self.assertTrue(result['enabled'], result)
@@ -222,7 +222,7 @@ class HermesInstallTest(unittest.TestCase):
             # Another allowed user comes first, so the sticker reaching OWNER proves it follows
             # the chat being answered rather than the first name on the list.
             self.write_env({'TELEGRAM_BOT_TOKEN': TOKEN, 'TELEGRAM_ALLOWED_USERS': '999001,%d' % OWNER,
-                            'GODSPEED_STICKER_SET': SET, 'GODSPEED_STICKER_API_BASE': self.tg_base,
+                            'STICKERS_SET': SET, 'STICKERS_API_BASE': self.tg_base,
                             'OPENAI_API_KEY': 'mock-key'})
             self.configure_gateway(llm_base)
             r = self.hermes('config', 'set', 'plugins.isolation', isolation or 'in_process')

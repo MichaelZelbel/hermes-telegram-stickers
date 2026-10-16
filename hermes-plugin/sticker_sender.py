@@ -1,6 +1,6 @@
-"""Telegram side of the godspeed-stickers Hermes plugin.
+"""Telegram side of the hermes-telegram-stickers plugin.
 
-Finds a sticker in a Telegram sticker set by its emoji and sends it through YOUR bot.
+Finds a sticker in a Telegram sticker set by its primary emoji and sends it through YOUR bot.
 
 Why it looks the sticker up instead of shipping a fixed id: Telegram gives every bot its own
 file_id for the same sticker, and a file_id from one bot does not work for another. So the plugin
@@ -19,12 +19,13 @@ import urllib.request
 DEFAULT_API = 'https://api.telegram.org'
 TIMEOUT = 5  # seconds per Telegram call; a sticker must never hold up a reply for long
 
-_sets: dict[tuple[str, str], dict[str, str]] = {}  # (bot token tail, set name) -> {emoji: file_id}
+# (bot token tail, set name) -> {primary emoji: file_id, or None when two stickers share it}
+_sets: dict[tuple[str, str], dict[str, str | None]] = {}
 
 
 def _plain(emoji: str) -> str:
-    """Compare emoji without the invisible variation selector some clients add."""
-    return (emoji or '').replace('️', '').strip()
+    """The emoji itself, without the invisible variation selector (U+FE0F) some clients add."""
+    return (emoji or '').replace('\ufe0f', '').strip()
 
 
 def hermes_home() -> str:
@@ -75,11 +76,11 @@ def _session_chat():
 
 
 def target_chat(person: str = ''):
-    """Where the sticker goes: GODSPEED_STICKER_CHAT if set, else the chat being answered (from
+    """Where the sticker goes: STICKERS_CHAT if set, else the chat being answered (from
     the gateway), else `person` (the Telegram user being answered, whose private chat has the
     same id), else the gateway's home channel, else the first allowed user.
     Returns (chat_id, thread_id)."""
-    fixed = setting('GODSPEED_STICKER_CHAT')
+    fixed = setting('STICKERS_CHAT')
     if fixed:
         return fixed, ''
     chat, thread = _session_chat()
@@ -102,7 +103,7 @@ def _scrub(text, token):
 
 
 def _call(token: str, method: str, payload: dict) -> dict:
-    api = setting('GODSPEED_STICKER_API_BASE', DEFAULT_API).rstrip('/')
+    api = setting('STICKERS_API_BASE', DEFAULT_API).rstrip('/')
     req = urllib.request.Request('%s/bot%s/%s' % (api, token, method),
                                  data=json.dumps(payload).encode('utf-8'),
                                  headers={'Content-Type': 'application/json'})
@@ -123,17 +124,20 @@ def _set_ids(token: str, set_name: str, refresh: bool = False) -> dict:
         if not got.get('ok'):
             raise LookupError('Telegram has no sticker set %r for this bot (%s)'
                               % (set_name, got.get('description', 'no reason given')))
+        # Telegram's `emoji` field is the sticker's primary emoji (the first in its list). A tag
+        # names exactly one sticker, so a primary emoji used twice in a set names none.
         ids = {}
         for sticker in got.get('result', {}).get('stickers', []):
-            ids.setdefault(_plain(sticker.get('emoji', '')), sticker['file_id'])
+            primary = _plain(sticker.get('emoji', ''))
+            ids[primary] = None if primary in ids else sticker['file_id']
         _sets[key] = ids
     return _sets[key]
 
 
 def send(set_name: str, emoji: str, person: str = '') -> str:
     """Send the sticker carrying `emoji` from `set_name`, silently. Returns a short outcome
-    ('sent', 'no-token', 'no-chat', 'no-such-set: ...', 'no-such-sticker', 'refused: ...',
-    'failed: ...'); never raises and never includes the bot token."""
+    ('sent', 'no-token', 'no-chat', 'no-such-set: ...', 'no-such-sticker', 'ambiguous',
+    'refused: ...', 'failed: ...'); never raises and never includes the bot token."""
     token = setting('TELEGRAM_BOT_TOKEN')
     if not token:
         return 'no-token'
@@ -145,9 +149,12 @@ def send(set_name: str, emoji: str, person: str = '') -> str:
             ids = _set_ids(token, set_name)
         except LookupError as exc:
             return 'no-such-set: %s' % _scrub(exc, token)
-        file_id = ids.get(_plain(emoji))
-        if file_id is None:
+        primary = _plain(emoji)
+        if primary not in ids:
             return 'no-such-sticker'
+        file_id = ids[primary]
+        if file_id is None:
+            return 'ambiguous'
         payload = {'chat_id': chat, 'sticker': file_id, 'disable_notification': True}
         if thread:
             payload['message_thread_id'] = int(thread) if thread.isdigit() else thread

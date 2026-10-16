@@ -1,4 +1,5 @@
-"""godspeed-stickers: lets a Hermes Agent bot send a sticker to the person it is talking to.
+"""hermes-telegram-stickers: lets a Hermes Agent bot send a Telegram sticker to the person it is
+talking to.
 
 The agent ends a reply with a tag such as [[sticker:done]]. Just before the reply goes out, this
 plugin sends the matching sticker through your Telegram bot and removes the tag, so the person
@@ -7,15 +8,15 @@ sees the sticker and the words, never the tag.
 Install and setup: README.md next to this file. Settings, all optional, read from the
 environment or from ~/.hermes/.env:
 
-  GODSPEED_STICKER_SET        Telegram sticker set name (the part after t.me/addstickers/).
-                              Default: the free Speedy set.
-  GODSPEED_STICKER_TAGS       Your own tags for your own set: "done=✅,ask=❓". Replaces the
-                              Speedy tags below.
-  GODSPEED_STICKER_PLATFORMS  Where a tag sends a sticker. Default "telegram". On every other
-                              platform the tag is only removed.
-  GODSPEED_STICKER_CHAT       Always send to this chat id instead of the chat being answered.
-  GODSPEED_STICKER_API_BASE   Bot API address. Default https://api.telegram.org (change it for a
-                              self-hosted Bot API server, or for testing).
+  STICKERS_SET        Which stickers: speedy (the default), bit, mochi, or the name of any
+                      Telegram sticker set (the part after t.me/addstickers/).
+  STICKERS_TAGS       Your own tags for your own set: "yay=🎉,hmm=🤔". Replaces the built-in
+                      tags below.
+  STICKERS_PLATFORMS  Where a tag sends a sticker. Default "telegram". On every other platform
+                      the tag is only removed.
+  STICKERS_CHAT       Always send to this chat id instead of the chat being answered.
+  STICKERS_API_BASE   Bot API address. Default https://api.telegram.org (change it for a
+                      self-hosted Bot API server, or for testing).
 """
 from __future__ import annotations
 
@@ -27,24 +28,39 @@ import re
 logger = logging.getLogger(__name__)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+NAME = 'hermes-telegram-stickers'
 
-# Filled in by scripts/publish-set.sh when the Speedy set is published.
-DEFAULT_SET = 'speedy_by_GodspeedStickersBot'
+# The sets this repository publishes. scripts/publish-set.sh fills in each set's Telegram name.
+SETS = {
+    'speedy': 'speedy_by_GodspeedStickersBot',
+    'bit': 'bit_by_<BOT>',
+    'mochi': 'mochi_by_<BOT>',
+}
+DEFAULT = 'speedy'
 
-# Speedy's seven poses: tag -> the emoji Telegram lists for that sticker in the set.
-SPEEDY_TAGS = {
-    'today': '\U0001F3A7',  # headphones: listening, here for the day
-    'onit': '\U0001F4BB',   # laptop: on it
-    'note': '\U0001F4DD',   # memo: a note for you
-    'copy': '\U0001F4E1',   # satellite antenna: do you copy? (needs your yes)
-    'fix': '\U0001F527',    # wrench: fixing it
-    'done': '\U0001FAE1',   # saluting face: done
-    'quiet': '\U0001F634',  # sleeping face: quiet watch
+# The moments every set has: tag -> the PRIMARY emoji of that tag's sticker in each set.
+# A set may carry more emoji per sticker; only the primary one is used to find it.
+TAGS = {
+    'today': '\U0001F3A7',    # headphones: here and listening
+    'onit': '\U0001F4BB',     # laptop: on it
+    'note': '\U0001F4DD',     # memo: a note for you
+    'copy': '\U0001F4E1',     # satellite antenna: do you copy? I need your yes
+    'fix': '\U0001F527',      # wrench: fixing it
+    'done': '\U0001FAE1',     # saluting face: done
+    'quiet': '\U0001F634',    # sleeping face: keeping quiet watch
+    'ok': '\U0001F44D',       # thumbs up: got it
+    'think': '\U0001F914',    # thinking face: thinking it over
+    'found': '\U0001F50D',    # magnifying glass: found it
+    'oops': '\U0001F605',     # sweat smile: my mistake
+    'party': '\U0001F389',    # party popper: good news
+    'thanks': '\U0001F64F',   # folded hands: thank you
+    'morning': '☕',      # hot beverage: good morning
+    'night': '\U0001F319',    # crescent moon: good night
 }
 
 TAG_RE = re.compile(r'[ \t]*`?\[\[\s*sticker\s*:\s*([A-Za-z0-9_-]+)\s*\]\]`?', re.IGNORECASE)
 
-_spec = importlib.util.spec_from_file_location('godspeed_stickers_sender',
+_spec = importlib.util.spec_from_file_location('hermes_telegram_stickers_sender',
                                                os.path.join(HERE, 'sticker_sender.py'))
 sender = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sender)
@@ -61,14 +77,23 @@ def _warn_once(key: str, message: str, *args) -> None:
         logger.warning(message, *args)
 
 
+def chosen() -> str:
+    return sender.setting('STICKERS_SET', DEFAULT).strip()
+
+
 def sticker_set() -> str:
-    return sender.setting('GODSPEED_STICKER_SET', DEFAULT_SET)
+    """The Telegram set name: one of ours by its short name, or any set name as given."""
+    return SETS.get(chosen().lower(), chosen())
+
+
+def unpublished() -> bool:
+    return '<' in sticker_set()
 
 
 def tags() -> dict:
-    custom = sender.setting('GODSPEED_STICKER_TAGS')
+    custom = sender.setting('STICKERS_TAGS')
     if not custom:
-        return dict(SPEEDY_TAGS)
+        return dict(TAGS)
     out = {}
     for pair in custom.split(','):
         name, sep, emoji = pair.partition('=')
@@ -78,7 +103,7 @@ def tags() -> dict:
 
 
 def send_platforms() -> set:
-    raw = sender.setting('GODSPEED_STICKER_PLATFORMS', 'telegram')
+    raw = sender.setting('STICKERS_PLATFORMS', 'telegram')
     return {p.strip().lower() for p in raw.split(',') if p.strip()}
 
 
@@ -88,23 +113,25 @@ def strip_tags(text: str) -> str:
     return cleaned.strip()
 
 
-def explain(outcome: str, name: str) -> str | None:
+def explain(outcome: str, tag: str) -> str | None:
     """A plain sentence for every outcome that needs the operator's attention."""
     if outcome == 'no-token':
-        return ('godspeed-stickers: no Telegram bot token, so no sticker was sent. Put '
-                'TELEGRAM_BOT_TOKEN (the token your Hermes Telegram gateway already uses) in '
-                '~/.hermes/.env.')
+        return ('%s: no Telegram bot token, so no sticker was sent. Put TELEGRAM_BOT_TOKEN (the '
+                'token your Hermes Telegram gateway already uses) in ~/.hermes/.env.' % NAME)
     if outcome == 'no-chat':
-        return ('godspeed-stickers: no chat to send the sticker to. Set TELEGRAM_HOME_CHANNEL or '
-                'TELEGRAM_ALLOWED_USERS in ~/.hermes/.env (or GODSPEED_STICKER_CHAT).')
+        return ('%s: no chat to send the sticker to. Set TELEGRAM_HOME_CHANNEL or '
+                'TELEGRAM_ALLOWED_USERS in ~/.hermes/.env (or STICKERS_CHAT).' % NAME)
     if outcome.startswith('no-such-set'):
-        return ('godspeed-stickers: %s. Check GODSPEED_STICKER_SET (the part after '
-                't.me/addstickers/).' % outcome.partition(': ')[2])
+        return ('%s: %s. Check STICKERS_SET (speedy, bit, mochi, or the part after '
+                't.me/addstickers/).' % (NAME, outcome.partition(': ')[2]))
     if outcome == 'no-such-sticker':
-        return ('godspeed-stickers: set %r has no sticker with the emoji for tag %r. Check '
-                'GODSPEED_STICKER_TAGS.' % (sticker_set(), name))
+        return ('%s: set %r has no sticker whose first emoji is the one for tag %r, so none was '
+                'sent.' % (NAME, sticker_set(), tag))
+    if outcome == 'ambiguous':
+        return ('%s: in set %r two stickers have the first emoji of tag %r, so none was sent.'
+                % (NAME, sticker_set(), tag))
     if outcome.startswith(('refused', 'failed')):
-        return 'godspeed-stickers: sticker %r not sent (%s).' % (name, outcome)
+        return '%s: sticker %r not sent (%s).' % (NAME, tag, outcome)
     return None
 
 
@@ -114,14 +141,12 @@ def register(ctx):
     problems = []
     if not sender.setting('TELEGRAM_BOT_TOKEN'):
         problems.append('no TELEGRAM_BOT_TOKEN')
-    if '<' in sticker_set():
-        problems.append('no sticker set configured (set GODSPEED_STICKER_SET)')
+    if unpublished():
+        problems.append('the %s set is not published yet (pick another with STICKERS_SET)' % chosen())
     if problems:
-        logger.warning('godspeed-stickers: loaded, but stickers will not send yet: %s.',
-                       '; '.join(problems))
+        logger.warning('%s: loaded, but stickers will not send yet: %s.', NAME, '; '.join(problems))
     else:
-        logger.info('godspeed-stickers: ready (set %s, tags %s)', sticker_set(),
-                    ', '.join(sorted(tags())))
+        logger.info('%s: ready (set %s, tags %s)', NAME, sticker_set(), ', '.join(tags()))
 
 
 def on_pre_llm_call(session_id: str = '', platform: str = '', sender_id: str = '', **_):
@@ -145,17 +170,18 @@ def on_transform_llm_output(response_text: str = '', platform: str = '', session
         return None
     try:
         known = tags()
-        for name in found:
-            if name not in known:
-                logger.warning('godspeed-stickers: unknown tag [[sticker:%s]] removed (known: %s)',
-                               name, ', '.join(sorted(known)))
-        wanted = next((n for n in found if n in known), None)
+        for tag in found:
+            if tag not in known:
+                logger.warning('%s: unknown tag [[sticker:%s]] removed (known: %s)',
+                               NAME, tag, ', '.join(known))
+        wanted = next((t for t in found if t in known), None)
         if wanted:
             platforms = send_platforms()
             if '*' in platforms or (platform or '').lower() in platforms:
-                if '<' in sticker_set():
-                    _warn_once('no-set', 'godspeed-stickers: no sticker set configured, so no '
-                               'sticker was sent. Set GODSPEED_STICKER_SET in ~/.hermes/.env.')
+                if unpublished():
+                    _warn_once('unpublished', '%s: the %s set is not published yet, so no sticker '
+                               'was sent. Pick another with STICKERS_SET in ~/.hermes/.env.',
+                               NAME, chosen())
                 else:
                     outcome = sender.send(sticker_set(), known[wanted],
                                           person=_people.get(str(session_id), ''))
@@ -163,11 +189,11 @@ def on_transform_llm_output(response_text: str = '', platform: str = '', session
                     if message:
                         logger.warning(message)
                     else:
-                        logger.info('godspeed-stickers: %s -> %s', wanted, outcome)
+                        logger.info('%s: %s -> %s', NAME, wanted, outcome)
         cleaned = strip_tags(text)
         # A reply that was nothing but a tag must not come back empty (Hermes would then show
         # the original text, tag included), so it becomes the sticker's emoji.
         return cleaned or (known.get(wanted) if wanted else '') or '✅'
     except Exception as exc:  # noqa: BLE001 - never break the chat over a sticker
-        logger.warning('godspeed-stickers: %s', exc)
+        logger.warning('%s: %s', NAME, exc)
         return strip_tags(text) or None
