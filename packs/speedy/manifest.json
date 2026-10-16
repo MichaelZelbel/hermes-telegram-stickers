@@ -1,8 +1,8 @@
 {
   "name": "speedy",
   "title": "Speedy · Godspeed Mission Control",
-  "telegram_set_name": null,
-  "telegram_set": null,
+  "telegram_set_name": "speedy_by_GodspeedStickersBot",
+  "telegram_set": "https://t.me/addstickers/speedy_by_GodspeedStickersBot",
   "source": "https://godspeedmissioncontrol.com/speedy/",
   "stickers": [
     { "pose": "today", "file": "speedy-today.png", "emoji": ["🎧", "👻"], "when": "you start the day or pick up a conversation" },

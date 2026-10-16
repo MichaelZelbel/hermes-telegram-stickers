@@ -67,5 +67,5 @@ seen in a chat. With the ids from step 2 your agent does not need it.
 ## Any other bot
 
 The same two Bot API calls work from anything that can make an HTTP request:
-`getStickerSet` with `name=speedy_by_<BOT>` returns every sticker with a `file_id` for the bot
+`getStickerSet` with `name=speedy_by_GodspeedStickersBot` returns every sticker with a `file_id` for the bot
 that asked, and `sendSticker` with `chat_id` and that `file_id` sends it.

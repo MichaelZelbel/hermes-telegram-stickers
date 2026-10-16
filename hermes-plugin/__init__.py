@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Filled in by scripts/publish-set.sh when the Speedy set is published.
-DEFAULT_SET = 'speedy_by_<BOT>'
+DEFAULT_SET = 'speedy_by_GodspeedStickersBot'
 
 # Speedy's seven poses: tag -> the emoji Telegram lists for that sticker in the set.
 SPEEDY_TAGS = {

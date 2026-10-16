@@ -27,7 +27,7 @@ in seven poses. The word in front is the tag your agent uses.
 - `done` 🫡 done
 - `quiet` 😴 keeping quiet watch
 
-Add them to your own Telegram: https://t.me/addstickers/speedy_by_<BOT>
+Add them to your own Telegram: https://t.me/addstickers/speedy_by_GodspeedStickersBot
 <!-- The set name above is filled in by scripts/publish-set.sh when the set is published. -->
 
 ## Let your bot send them

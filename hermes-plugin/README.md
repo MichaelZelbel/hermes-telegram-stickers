@@ -62,7 +62,7 @@ All seven tags:
 All optional. Put them in `~/.hermes/.env` and restart the gateway.
 
 - `GODSPEED_STICKER_SET`: a sticker set name, the part after `t.me/addstickers/`.
-  Default: Speedy (`speedy_by_<BOT>`).
+  Default: Speedy (`speedy_by_GodspeedStickersBot`).
 - `GODSPEED_STICKER_TAGS`: your own tags for your own set, as `tag=emoji` pairs:
   `GODSPEED_STICKER_TAGS=yay=🎉,hmm=🤔`. Each emoji must be the one Telegram shows for that
   sticker in the set. This replaces the Speedy tags.
