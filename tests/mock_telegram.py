@@ -101,7 +101,10 @@ class MockTelegram:
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(data)))
                 self.end_headers()
-                self.wfile.write(data)
+                try:
+                    self.wfile.write(data)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # the client hung up (a gateway stopping mid long-poll)
 
         self._server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
         self._server.daemon_threads = True
