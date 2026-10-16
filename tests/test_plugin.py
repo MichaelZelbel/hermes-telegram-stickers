@@ -220,8 +220,7 @@ class PluginTest(unittest.TestCase):
 
     def test_unpublished_default_set_does_not_call_telegram(self):
         del os.environ['GODSPEED_STICKER_SET']
-        if '<' not in self.plugin.DEFAULT_SET:
-            self.skipTest('DEFAULT_SET already filled in by publish-set.sh')
+        self.plugin.DEFAULT_SET = 'speedy_by_<BOT>'  # as shipped before publish-set.sh fills it in
         with self.assertLogs(level=logging.WARNING) as logs:
             out = self.reply('ok [[sticker:done]]')
         self.assertEqual(out, 'ok')

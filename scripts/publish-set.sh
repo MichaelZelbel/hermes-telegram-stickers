@@ -10,8 +10,9 @@
 #
 # - If the set does not exist yet, it is created with every sticker in the manifest.
 # - If it exists, stickers the manifest has beyond the set's count are added to the end.
-# Afterwards packs/<pack>/manifest.json gets telegram_set_name and telegram_set, and the
-# <pack>_by_<BOT> placeholders in the docs and the Hermes plugin are filled in.
+# Afterwards packs/<pack>/manifest.json gets telegram_set_name and telegram_set, and the docs
+# and the Hermes plugin name the new set wherever they named the old one (or the
+# <pack>_by_<BOT> placeholder), so a fork published under its own bot links to its own set.
 #
 # The token never appears in output or on the command line of any process it starts.
 # TELEGRAM_API_BASE points it at another Bot API server (default https://api.telegram.org).
@@ -19,7 +20,7 @@ set -euo pipefail
 
 PACK="${1:-}"
 if [ -z "$PACK" ] || [ "$PACK" = "-h" ] || [ "$PACK" = "--help" ]; then
-  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

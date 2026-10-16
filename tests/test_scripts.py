@@ -25,6 +25,11 @@ from mock_telegram import MockTelegram  # noqa: E402
 TOKEN = '111111:test-operator-token'
 OTHER_TOKEN = '222222:someone-elses-token'
 SPEEDY_POSES = ['today', 'onit', 'note', 'copy', 'fix', 'done', 'quiet']
+PLACEHOLDER = 'speedy_by_<BOT>'
+MANIFEST = 'packs/speedy/manifest.json'
+# Files that name the Speedy set (the same list scripts/pack.py updates after publishing).
+NAMED_IN = ('README.md', 'INTEGRATIONS.md', 'CONTRIBUTING.md', 'hermes-plugin/README.md',
+            'hermes-plugin/__init__.py')
 
 
 def have_bash_and_curl() -> bool:
@@ -109,7 +114,43 @@ class PublishTest(unittest.TestCase):
         with open(os.path.join(self.repo, rel), encoding='utf-8') as fh:
             return fh.read()
 
-    def test_publish_names_the_set_after_the_bot_and_records_it(self):
+    def write(self, rel, text):
+        with open(os.path.join(self.repo, rel), 'w', encoding='utf-8', newline='') as fh:
+            fh.write(text)
+
+    def start_from(self, recorded):
+        """Put the copy in a known state, whatever the real repository holds: never published
+        (recorded=None, the docs carry the speedy_by_<BOT> placeholder) or published as
+        `recorded` (the docs and the plugin name that set)."""
+        m = self.manifest()
+        current = m.get('telegram_set_name') or PLACEHOLDER
+        target = recorded or PLACEHOLDER
+        for rel in NAMED_IN:
+            self.write(rel, self.read(rel).replace(current, target))
+        m['telegram_set_name'] = recorded
+        m['telegram_set'] = 'https://t.me/addstickers/' + recorded if recorded else None
+        self.write(MANIFEST, json.dumps(m, ensure_ascii=False, indent=2) + '\n')
+        self.assertIn("DEFAULT_SET = '%s'" % target, self.read('hermes-plugin/__init__.py'))
+        self.assertIn('https://t.me/addstickers/' + target, self.read('README.md'))
+
+    def snapshot(self):
+        return {rel: self.read(rel) for rel in NAMED_IN + (MANIFEST,)}
+
+    def test_publish_from_placeholders_names_the_set_after_the_bot(self):
+        self.start_from(None)
+        self.check_published_as_operator()
+
+    def test_publish_of_a_fork_replaces_the_previous_set_everywhere(self):
+        # Someone forks the repository and publishes Speedy under their own bot: every link
+        # and the plugin's default must point at their set, not the one they forked.
+        self.start_from('speedy_by_UpstreamBot')
+        self.write('README.md', self.read('README.md') + '\nNot the same set: speedy_by_UpstreamBotTwo\n')
+        self.check_published_as_operator()
+        for rel in NAMED_IN + (MANIFEST,):
+            self.assertNotRegex(self.read(rel), r'speedy_by_UpstreamBot(?![A-Za-z0-9_])', rel)
+        self.assertIn('speedy_by_UpstreamBotTwo', self.read('README.md'))  # whole names only
+
+    def check_published_as_operator(self):
         r = self.publish()
         out = r.stdout + r.stderr
         self.assertEqual(r.returncode, 0, out)
@@ -130,9 +171,10 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(m['telegram_set_name'], 'speedy_by_OperatorTestBot')
         self.assertEqual(m['telegram_set'], 'https://t.me/addstickers/speedy_by_OperatorTestBot')
         self.assertNotIn('file_id', json.dumps(m))
-        for rel in ('README.md', 'INTEGRATIONS.md', 'hermes-plugin/README.md', 'hermes-plugin/__init__.py'):
-            text = self.read(rel)
-            self.assertNotIn('speedy_by_<BOT>', text, rel)
+        for rel in NAMED_IN:
+            self.assertNotIn(PLACEHOLDER, self.read(rel), rel)
+        for rel in ('README.md', 'INTEGRATIONS.md', 'hermes-plugin/README.md'):
+            self.assertIn('speedy_by_OperatorTestBot', self.read(rel), rel)
         self.assertIn("DEFAULT_SET = 'speedy_by_OperatorTestBot'", self.read('hermes-plugin/__init__.py'))
         self.assertIn('https://t.me/addstickers/speedy_by_OperatorTestBot', self.read('README.md'))
 
@@ -168,13 +210,14 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(added[0]['files'], ['s0'])
         self.assertIn('Telegram now lists 8 sticker(s)', r.stdout)
 
-    def test_refusal_is_reported_without_the_token(self):
+    def test_refusal_is_reported_without_the_token_and_changes_nothing(self):
+        before = self.snapshot()
         r = run(['bash', 'scripts/publish-set.sh', 'speedy'], self.repo,
                 {'BOT_TOKEN': '999:not-a-known-bot', 'OWNER_USER_ID': '1', 'TELEGRAM_API_BASE': self.base})
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('Telegram refused: Unauthorized', r.stdout)
         self.assertNotIn('not-a-known-bot', r.stdout + r.stderr)
-        self.assertIsNone(self.manifest()['telegram_set_name'])
+        self.assertEqual(self.snapshot(), before)
 
     def test_missing_token_is_explained(self):
         r = run(['bash', 'scripts/publish-set.sh', 'speedy'], self.repo, {'OWNER_USER_ID': '1'})

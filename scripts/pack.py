@@ -128,14 +128,21 @@ def all_packs() -> list[str]:
 
 
 def record(pack: str, name: str) -> list[str]:
-    """After publishing: store the set in the manifest and fill in the `<pack>_by_<BOT>`
-    placeholders in the docs and the Hermes plugin. Returns the files changed."""
+    """After publishing: store the set in the manifest, and put its name in the docs and the
+    Hermes plugin wherever they name this pack's set: the `<pack>_by_<BOT>` placeholder, or the
+    set recorded before (so a fork published under another bot links to its own set
+    everywhere). Returns the files changed."""
     m = load(pack)
+    previous = m.get('telegram_set_name') or ''
     m['telegram_set_name'] = name
     m['telegram_set'] = 'https://t.me/addstickers/' + name
     save(pack, m)
     changed = [os.path.join('packs', pack, 'manifest.json')]
-    placeholder = '%s_by_<BOT>' % base_name(m)
+    olds = ['%s_by_<BOT>' % base_name(m)]
+    if previous and previous != name:
+        olds.append(previous)
+    # Whole set names only: "speedy_by_Bot" must not match inside "speedy_by_BotTwo".
+    pattern = re.compile('|'.join('(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])' % re.escape(o) for o in olds))
     for rel in PLACEHOLDER_FILES:
         path = os.path.join(ROOT, rel)
         try:
@@ -143,9 +150,10 @@ def record(pack: str, name: str) -> list[str]:
                 text = fh.read()
         except OSError:
             continue
-        if placeholder in text:
+        new = pattern.sub(name, text)
+        if new != text:
             with open(path, 'w', encoding='utf-8', newline='') as fh:
-                fh.write(text.replace(placeholder, name))
+                fh.write(new)
             changed.append(rel)
     return changed
 
