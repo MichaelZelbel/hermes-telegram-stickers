@@ -1,0 +1,10 @@
+{
+  "about": "Which pages of the user guide describe which paths here. Written by scripts/guide-map.mjs in the website repository (MichaelZelbel/godspeedmissioncontrol) from each page's sources, a file cited by more than 3 pages going only to its owners in docs/guide/map-owners.json there: change those and run it again, never this file by hand. .github/guide-check.mjs reads it.",
+  "guide": "https://godspeedmissioncontrol.com/guide/",
+  "since": "ef10df92c3db4f6225b3043279a8e4253638a5c3",
+  "ignore": ["**/test/**", "**/tests/**", "**/__tests__/**", "**/fixtures/**", "**/*.test.*", "**/*.spec.*", "**/test-*", "**/test_*", "**/*_test.*", "docs/**", ".github/**", "**/retired/**", "**/vendor/**", "**/node_modules/**", "**/dist/**", "**/package-lock.json", "**/*.min.js", "**/*.gen.*"],
+  "pages": {
+    "add-ons": ["README.md"],
+    "stickers": ["README.md", "hermes-plugin/README.md", "hermes-plugin/after-install.md", "hermes-plugin/plugin.yaml", "hermes-plugin/sticker_sender.py"]
+  }
+}
