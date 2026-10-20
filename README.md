@@ -1,14 +1,25 @@
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-CC0-blue.svg" alt="CC0, public domain"></a>
+  <a href="https://godspeedmissioncontrol.com"><img src="https://img.shields.io/badge/made%20by-Godspeed%20Mission%20Control-5a45c8.svg" alt="Made by Godspeed Mission Control"></a>
+  <a href="https://t.me/addstickers/speedy_by_GodspeedStickersBot"><img src="https://img.shields.io/badge/Telegram-add%20Speedy-26a5e4.svg" alt="Add the Speedy stickers in Telegram"></a>
+</p>
+
 # Hermes Telegram Stickers
 
 Free Telegram stickers for [Hermes Agent](https://github.com/NousResearch/hermes-agent), and a
 plugin that lets your Hermes bot send one at the right moment: when it finished a job, when it
 needs your yes, when it is fixing something.
 
+Made by [Godspeed Mission Control](https://godspeedmissioncontrol.com), the free personal AI you
+run yourself on Hermes. Its manual is the book [*Teach It Once*](https://leanpub.com/teachitonce).
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/michaelc0de)
+
 Three sets with the same fifteen moments, so switching sets is one setting.
 
-**Speedy**, a soft felt cloud ghost. Speedy is the mascot of
-[Godspeed Mission Control](https://godspeedmissioncontrol.com), a personal AI that runs on
-Hermes, so these stickers work there too.
+**Speedy**, a soft felt cloud ghost, the mascot of
+[Godspeed Mission Control](https://godspeedmissioncontrol.com). Running Godspeed on a server?
+[Its guide page](https://godspeedmissioncontrol.com/guide/stickers) installs these in four steps.
 Add them: https://t.me/addstickers/speedy_by_GodspeedStickersBot
 
 <p>
@@ -132,6 +143,25 @@ python3 -m unittest discover -s tests -v
 They never reach Telegram: a small stand-in for the Bot API runs on your machine. Run them with a
 Python that can import Hermes and they also install the plugin into a throwaway Hermes home and
 run a real Hermes gateway against that stand-in.
+
+## Who made this
+
+[Michael Zelbel](https://zelbel.com), and the personal AI he builds in the open.
+
+- **[Godspeed Mission Control](https://godspeedmissioncontrol.com)**: a free personal AI that
+  lives in a folder you own, runs on Hermes, and messages you only when something matters.
+  [Install it](https://godspeedmissioncontrol.com/install).
+- **[*Teach It Once*](https://leanpub.com/teachitonce)**: the book that builds it with you, step
+  by step. Free sample on the page.
+- **[Hermes DevOps Kit](https://ko-fi.com/s/29efd32495)**: keeps your Hermes server running for
+  you. Restarts a dead gateway, updates overnight with a rollback, watches your spend. Free to
+  take, pay what it is worth to you.
+- **[The newsletter](https://michaelzelbel.substack.com/subscribe)**: what my AI does for me and
+  what I will not let it do. Free.
+- **[YouTube](https://www.youtube.com/@michaelzelbel)**
+
+If the stickers made your bot a little nicer to talk to, a star on this repository helps other
+Hermes users find them.
 
 ## License
 

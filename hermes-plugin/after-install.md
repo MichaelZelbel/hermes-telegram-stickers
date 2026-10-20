@@ -11,3 +11,6 @@ Two more steps:
 2. Restart the gateway: `hermes gateway restart`
 
 Every tag is listed in the main README, the optional settings in the plugin's README.
+
+Made by Godspeed Mission Control, the free personal AI you run yourself on Hermes:
+https://godspeedmissioncontrol.com
