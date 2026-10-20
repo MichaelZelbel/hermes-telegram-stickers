@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/social-preview.png" alt="Hermes Telegram Stickers: Speedy, Bit and Mochi, free stickers and a plugin for Hermes bots" width="100%"></p>
+
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-CC0-blue.svg" alt="CC0, public domain"></a>
   <a href="https://godspeedmissioncontrol.com"><img src="https://img.shields.io/badge/made%20by-Godspeed%20Mission%20Control-5a45c8.svg" alt="Made by Godspeed Mission Control"></a>
